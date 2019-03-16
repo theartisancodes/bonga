@@ -21,3 +21,9 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.eslintrc
+src/components/Auth/
+src/constants/
+src/shared/
+yarn.lock
+/.idea/
