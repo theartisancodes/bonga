@@ -1,12 +1,12 @@
-import React, { Component } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import firebase from '../../constants/firebase'
 import styled from 'styled-components';
 import md5 from 'md5';
 import {
   Grid, Segment, Form, Button, Header, Message, Icon,
 } from 'semantic-ui-react';
-import PropTypes from 'prop-types';
+import firebase from '../../constants/firebase'
+// import PropTypes from 'prop-types';
 
 
 const Container = styled.div`
@@ -22,27 +22,21 @@ const GridCustom = styled(Grid.Column)`
     margin-top: 100px;
 `;
 
-class Register extends Component {
-  constructor(props) {
-    super(props);
-    const initialState = {
-      username: '',
-      email: '',
-      password: '',
-      passwordConfirmation: '',
+const Register =  () => {
+  const [userName, setUserName ] = useState('');
+  const [email, setEmail ] = useState('');
+  const [password, setPassword ] = useState('');
+  const [passwordConfirmation, setPasswordConfirmation ] = useState('');
+  const [errors, setErrors ] = useState([]);
+  // eslint-disable-next-line
+  const [userRef, setUserRef ] = useState(firebase.database().ref('users'));
+  const [loading, setLoading ] = useState(false);
 
-    };
-    this.state = {
-      ...initialState,
-      loading: false,
-      errors: []
-    };
-  }
-  checkIsEmpty = ({ username, email, password, passwordConfirmation }) => {
-    return !username.length || !email.length || !password.length || !passwordConfirmation.length;
+  const checkIsEmpty = () => {
+    return !userName.length || !email.length || !password.length || !passwordConfirmation.length;
   };
 
-  validatePassword = ({ password, passwordConfirmation }) => {
+  const validatePassword = () => {
     if (password.length < 7 || passwordConfirmation.length < 7 ) {
       return false
     } else if (password !== passwordConfirmation) {
@@ -50,48 +44,66 @@ class Register extends Component {
     }
     return true
   };
-  checkIsValid = () => {
+ const checkIsValid = () => {
     let errors = [];
     let error;
-    if(this.checkIsEmpty(this.state)) {
+    if(checkIsEmpty(errors)) {
       error = { message: 'All fields must be filled'};
-      this.setState(({errors: errors.concat(error)}));
+      setErrors(errors.concat(error));
       return false
-    } else if (!this.validatePassword(this.state)) {
+    } else if (!validatePassword(errors)) {
       error = { message: 'Password is invalid'};
-      this.setState({ errors: errors.concat(error)});
+      setErrors(errors.concat(error));
       return false;
     }
     return true
 
   };
-  handleChange = event => {
-    this.setState({[ event.target.name]: event.target.value })
+  const handleEmail = event => {
+    const email = event.target.value;
+    setEmail(email)
+};
+  const handleUserName = event => {
+  const username = event.target.value;
+    setUserName(username);
+};
+  const handlePassword = event => {
+  const password = event.target.value;
+    setPassword(password)
+};
+  const handlePasswordConfirmation = event => {
+  const confirmation =  event.target.value;
+    setPasswordConfirmation(confirmation)
 };
 
-  handleErrors =  errors => errors.map((error, index) => (<p key={index}>{error.message}</p>));
+const handleErrors =  errors => errors.map((error, index) => (<p key={index}>{error.message}</p>));
 
-  handleSubmit = event => {
+  const handleSubmit = event => {
     event.preventDefault();
-    const { email, password, errors, username }  = this.state;
-    if(this.checkIsValid()){
-      this.setState({ errors: [], loading:true });
+    if(checkIsValid()){
+     setErrors([]);
+     setLoading(true);
       firebase
         .auth()
         .createUserWithEmailAndPassword(email, password).then(newUser =>
           newUser.user.updateProfile({
-            displayName: username,
-            photoURL: `http://gravatar.com/avatar/${md5(newUser.user.email)}?=identicon`
+            displayName: userName,
+            photoURL: `http://gravatar.com/avatar/${md5(newUser.user.email)}?d=identicon`
           }).then(
-            () => this.setState({ loading:  false})
-          ).catch(
-            error => { this.setState({ errors: errors.concat(error), loading: false})}
-          )
+            () => {
+              handleSaveUser(newUser).then(() => {
+                setLoading (false);
+              })
+            } ).catch(
+            error => (
+              setErrors(errors.concat(error),
+              setLoading (false)))
 
-        // () => this.setState({ loading: false })
-        ).catch( error => {
-        this.setState({errors: errors.concat(error), loading: false})
-      })
+        ).catch(
+            error => (
+              setErrors(errors.concat(error),
+                setLoading (false)))
+          ))
 
       // i  will  revisit this  and add a passwordless  login
       // .sendSignInLinkToEmail(email, actionCodeSettings).then(
@@ -99,12 +111,17 @@ class Register extends Component {
     }
 };
 
-  handleInputErrors = (errors, input) => {
+  const handleSaveUser = newUser => {
+   return userRef.child(newUser.user.uid).set({
+     name: newUser.user.displayName,
+     avatar: newUser.user.photoURL
+   })
+  };
+
+  const handleInputErrors = (errors, input) => {
    return errors.some(error => error.message.toLowerCase().includes(input)) ? 'error': ''
   };
 
-  render() {
-    const { username,  email, password, passwordConfirmation, errors, loading } = this.state;
     return (
       <div>
         <Container>
@@ -112,21 +129,21 @@ class Register extends Component {
             <Header as="h2" icon color="teal" textAlign="center">
               <Icon name="game" />
             </Header>
-            <Form size="large" onSubmit={this.handleSubmit}>
+            <Form size="large" onSubmit={handleSubmit}>
               <Segment stacked>
                 <Form.Input
-                  className={this.handleInputErrors(errors, 'username')}
+                  className={() => handleInputErrors(errors, 'username')}
                   fluid
                   name="username"
                   icon="user"
                   iconPosition="left"
                   placeholder="Username"
-                  value={username}
+                  value={userName}
                   type="text"
-                  onChange={this.handleChange}
+                  onChange={handleUserName}
                 />
                 <Form.Input
-                  className={this.handleInputErrors(errors, 'email')}
+                  className={() => handleInputErrors(errors, 'email')}
                   fluid
                   name="email"
                   icon="mail"
@@ -134,10 +151,10 @@ class Register extends Component {
                   placeholder="Email"
                   type="email"
                   value={email}
-                  onChange={this.handleChange}
+                  onChange={handleEmail}
                 />
                 <Form.Input
-                  className={this.handleInputErrors(errors, 'password')}
+                  className={() => handleInputErrors(errors, 'password')}
                   fluid
                   name="password"
                   icon="lock"
@@ -145,10 +162,10 @@ class Register extends Component {
                   placeholder="Password"
                   value={password}
                   type="password"
-                  onChange={this.handleChange}
+                  onChange={handlePassword}
                 />
                 <Form.Input
-                  className={this.handleInputErrors(errors, 'password')}
+                  className={() => handleInputErrors(errors, 'password')}
                   fluid
                   name="passwordConfirmation"
                   icon="lock"
@@ -156,7 +173,7 @@ class Register extends Component {
                   placeholder="Password Confirmation"
                   type="password"
                   value={passwordConfirmation}
-                  onChange={this.handleChange}
+                  onChange={handlePasswordConfirmation}
                 />
                 <Button
                   disabled={loading}
@@ -164,14 +181,15 @@ class Register extends Component {
                   color="teal"
                   fluid
                   size="large"
-                > Submit
+                >
+                  Register
                 </Button>
               </Segment>
             </Form>
             {
               errors.length > 0 && (
                 <Message error>
-                  {this.handleErrors(errors)}
+                  {handleErrors}
                 </Message>
               )
             }
@@ -183,7 +201,6 @@ class Register extends Component {
         </Container>
       </div>
     );
-  }
 }
 
 Register.propTypes = {
